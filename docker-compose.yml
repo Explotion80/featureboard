@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    image: featureboard:0.2.0
+    container_name: featureboard
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: docker-compose-local
+      APP_VERSION: 0.2.0
+      DATABASE_URL: postgresql://featureboard:localdevpassword@db:5432/featureboard
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    container_name: featureboard-db
+    environment:
+      POSTGRES_USER: featureboard
+      POSTGRES_PASSWORD: localdevpassword
+      POSTGRES_DB: featureboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U featureboard -d featureboard"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

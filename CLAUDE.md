@@ -84,15 +84,28 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 2 (prawie ukończona)
-- Ostatni ukończony krok: CI w GitHub Actions — lint (ruff), testy (pytest),
-  build obrazu (tag = git SHA), skan Trivy (bramka CRITICAL/HIGH,
-  ignore-unfixed); naprawione CVE w OpenSSL przez apt-get upgrade w runtime
-  stage. Fazy 0-1 ukończone (FastAPI + testy, Docker multi-stage non-root,
-  compose z Postgresem, /readyz, notatki w bazie).
+- Aktualna faza: 2 (prawie ukończona — zostało tylko push do Artifact Registry)
+- Ostatni ukończony krok: poprawki po /phase-review (raport lokalnie w audits/,
+  poza repo): (1) pydantic-settings — klasa Settings z wymaganym database_url,
+  walidacja configu przy starcie zamiast os.getenv z pustym defaultem;
+  (2) hardening CI — permissions: contents: read na poziomie workflow, akcje
+  przypięte do commit SHA z komentarzem wersji (checkout v6.0.3, setup-python
+  v6.2.0, trivy-action v0.36.0), cache pip w jobie test; (3) README przepisane
+  pod projekt (stare przeniesione do docs/agent-setup.md), dodany .env.example.
+  Wcześniej w tej fazie: testy integracyjne /notes i /readyz z prawdziwym
+  Postgresem (lokalnie compose db + conftest.py z setdefault; w CI service
+  container postgres:16 z healthcheckiem). Pipeline: lint (ruff) + test
+  (pytest x4, z bazą) -> build (tag = git SHA) -> scan (Trivy, bramka
+  CRITICAL/HIGH). Po drodze: CVE w OpenSSL załatane apt-get upgrade w runtime
+  stage, wyłączony windowsowy Postgres cieniujący port 5432.
+- Otwarte drobiazgi z audytu (nieblokujące, do ogarnięcia przy okazji):
+  brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
+  na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
+  walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
 - Następny krok: domknięcie Fazy 2 na styku z Fazą 3 — projekt GCP,
   Artifact Registry, uwierzytelnienie GitHub Actions przez Workload Identity
-  Federation, push obrazu do rejestru. Potem Terraform.
+  Federation (permissions: id-token: write w jobie build), push obrazu do
+  rejestru. Potem Terraform (stan w GCS, GKE, Cloud SQL).
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

@@ -52,7 +52,7 @@ jobs:
         run: docker build -t featureboard:${{ github.sha }} .
 
       - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@0.71.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: featureboard:${{ github.sha }}
           severity: HIGH,CRITICAL

@@ -1,0 +1,54 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+# Cancel a superseded review when new commits land on the same PR (cost control)
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Skip drafts — review only when the PR is ready
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} in
+            ${{ github.repository }}. Follow the project rules in CLAUDE.md.
+
+            Review ONLY the changes in this PR (use `gh pr diff` and read
+            surrounding context as needed). Priorities, in order:
+            1. GitOps correctness — Kustomize base/overlay changes, Argo CD
+               Application specs, sync policies, image tags (no :latest),
+               environment drift introduced by this PR.
+            2. Security — Dockerfile, K8s securityContext/probes/limits,
+               workflow permissions, any secret handling.
+            3. FastAPI code quality — async correctness, DB session handling,
+               schema/migration consistency, error handling.
+
+            Classify findings as CRITICAL / WARNING / INFO, reference file:line,
+            propose concrete fixes, and note what is done well. Skip clean areas.
+            Post the review as a single PR comment, written in Polish
+            (technical terms may stay in English). If there are no findings,
+            post a short approval comment instead.
+          claude_args: |
+            --max-turns 25
+            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(kustomize build:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,45 @@
+name: Claude Phase Review
+
+# Run manually once per roadmap phase:
+# Actions → Claude Phase Review → Run workflow → podaj numer fazy
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Numer fazy roadmapy do oceny (0-8)"
+        required: true
+        type: string
+
+jobs:
+  phase-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude phase review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Act as a senior platform engineer mentoring a junior DevOps candidate.
+            Review this repository against phase ${{ inputs.phase }} of ROADMAP.md,
+            following the methodology described in
+            .claude/agents/roadmap-mentor.md (evidence-based statuses,
+            tutorial-grade vs production-grade assessment, 3 gaps, 3 next
+            actions, 3 interview questions).
+
+            Write the full report in Polish (technical terms in English), then
+            create a GitHub issue titled
+            "Phase ${{ inputs.phase }} review — <today's date>" containing the
+            report, using `gh issue create`. Print only the issue URL at the end.
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Read,Glob,Grep,Bash(git log:*),Bash(kustomize build:*),Bash(gh issue create:*)"
+        env:
+          GH_TOKEN: ${{ github.token }}

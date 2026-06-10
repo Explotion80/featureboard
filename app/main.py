@@ -1,14 +1,24 @@
-import os
 from contextlib import asynccontextmanager
 
 import psycopg
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from pydantic_settings import BaseSettings
 
-DATABASE_URL = os.getenv("DATABASE_URL","")
+
+class Settings(BaseSettings):
+    # pole bez wartosci domyślnej = wymagane. Brak zmiennej środowiskowej
+    # DATABASE_URL zatrzyma start apki czytelnym błędem walidacji.
+    database_url: str
+    
+    # pola z deafultami są opcjonalne, jak dotychczasowe os.getenv(...., default)
+    environment: str = "local"
+    app_version: str = "0.0.0-dev"
+    
+settings = Settings()
 
 def init_db():
-    with psycopg.connect(DATABASE_URL) as conn:
+    with psycopg.connect(settings.database_url, connect_timeout=5) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS notes (
@@ -35,8 +45,8 @@ class NoteIn(BaseModel):
 @app.get("/")
 def root():
     return {
-        "environment": os.getenv("ENVIRONMENT", "local"),
-        "version": os.getenv("APP_VERSION", "0.0.0-dev"),
+        "environment": settings.environment,
+        "version": settings.app_version,
     }
 
 
@@ -48,7 +58,7 @@ def health():
 @app.get("/readyz")
 def readyz():
     try:
-        with psycopg.connect(DATABASE_URL, connect_timeout=4) as conn:
+        with psycopg.connect(settings.database_url, connect_timeout=4) as conn:
             conn.execute("SELECT 1")
         return {"status": "ready"}
     except Exception:
@@ -57,7 +67,7 @@ def readyz():
     
 @app.post("/notes")
 def create_note(note: NoteIn):
-    with psycopg.connect(DATABASE_URL) as conn:
+    with psycopg.connect(settings.database_url) as conn:
         row = conn.execute(
             "INSERT INTO notes (content) VALUES (%s) RETURNING id, content, created_at",
             (note.content,),
@@ -66,7 +76,7 @@ def create_note(note: NoteIn):
 
 @app.get("/notes")
 def list_notes():
-    with psycopg.connect(DATABASE_URL) as conn:
+    with psycopg.connect(settings.database_url) as conn:
         rows = conn.execute(
             "SELECT id, content, created_at FROM notes ORDER BY id"
         ).fetchall()

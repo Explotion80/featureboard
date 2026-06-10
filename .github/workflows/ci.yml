@@ -40,3 +40,13 @@ jobs:
 
       - name: Run tests
         run: pytest -v
+    
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t featureboard:${{ github.sha }} .

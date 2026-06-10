@@ -20,6 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # czyste środowisko + kopia gotowego venv i kodu
 FROM python:3.14-slim AS runtime
 
+# zainstaluj poprawki bezpieczeństwa debiana wydane po zbudowaniu obrazu bazowego
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 # tworzymy nie-rootowego użytkownika do uruchamiania aplikacji, UID 1001
 RUN useradd --create-home --uid 1001 --shell /bin/bash app
 

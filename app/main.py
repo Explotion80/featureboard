@@ -5,7 +5,6 @@ import psycopg
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-
 DATABASE_URL = os.getenv("DATABASE_URL","")
 
 def init_db():

@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
+
 from app.main import app
-import sys
-print(sys.path)
 
 client = TestClient(app)
 

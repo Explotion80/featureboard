@@ -84,12 +84,15 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 0
-- Ostatni ukończony krok: — (start projektu)
-- Następny krok: minimalna aplikacja FastAPI lokalnie — endpointy `/` i `/health`,
-  gdzie `/` czyta `ENVIRONMENT` i `APP_VERSION` ze zmiennych środowiskowych.
-  Wyjaśnij strukturę, każ mi to uruchomić i sprawdzić w przeglądarce, sprawdź
-  moje zrozumienie, dopiero wtedy zaproponuj kolejny krok.
+- Aktualna faza: 2 (prawie ukończona)
+- Ostatni ukończony krok: CI w GitHub Actions — lint (ruff), testy (pytest),
+  build obrazu (tag = git SHA), skan Trivy (bramka CRITICAL/HIGH,
+  ignore-unfixed); naprawione CVE w OpenSSL przez apt-get upgrade w runtime
+  stage. Fazy 0-1 ukończone (FastAPI + testy, Docker multi-stage non-root,
+  compose z Postgresem, /readyz, notatki w bazie).
+- Następny krok: domknięcie Fazy 2 na styku z Fazą 3 — projekt GCP,
+  Artifact Registry, uwierzytelnienie GitHub Actions przez Workload Identity
+  Federation, push obrazu do rejestru. Potem Terraform.
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

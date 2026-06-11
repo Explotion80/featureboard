@@ -84,7 +84,15 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 2 (prawie ukończona — zostało tylko push do Artifact Registry)
+- Aktualna faza: 2 UKOŃCZONA -> wchodzimy w fazę 3 (Terraform)
+- Faza 2 domknięta (2026-06-11): projekt GCP featureboard-499107, Artifact
+  Registry "featureboard" w europe-central2, WIF (pool github + provider
+  github-provider z attribute-condition na repository_owner) z impersonacją
+  service accounta github-ci@featureboard-499107.iam.gserviceaccount.com
+  (workloadIdentityUser dla principalSet repo, artifactregistry.writer na
+  rejestrze). CI pushuje obraz tagowany git SHA, tylko z main (if: push).
+  Lekcja: token_format: access_token wymaga service_account (Direct WIF
+  nie wystarcza do docker login).
 - Ostatni ukończony krok: poprawki po /phase-review (raport lokalnie w audits/,
   poza repo): (1) pydantic-settings — klasa Settings z wymaganym database_url,
   walidacja configu przy starcie zamiast os.getenv z pustym defaultem;

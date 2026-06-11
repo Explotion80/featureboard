@@ -91,6 +91,7 @@ jobs:
         with:
           token_format: access_token
           workload_identity_provider: projects/98544116050/locations/global/workloadIdentityPools/github/providers/github-provider
+          service_account: github-ci@featureboard-499107.iam.gserviceaccount.com
 
       - name: Login to Artifact Registry
         if: github.event_name == 'push'

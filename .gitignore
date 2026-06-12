@@ -16,3 +16,8 @@ Thumbs.db
 
 # lokalny audyt
 audits/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*

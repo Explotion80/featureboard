@@ -130,3 +130,53 @@ resource "google_compute_subnetwork" "gke" {
     ip_cidr_range = "10.2.0.0/20"
   }
 }
+
+# klaster gke standard, strefowy (darmowy limit GCP, na prod regionalny)
+resource "google_container_cluster" "primary" {
+  name     = "featureboard"
+  location = "europe-central2-a"
+
+  network    = google_compute_network.vpc.id
+  subnetwork = google_compute_subnetwork.gke.id
+
+  # Domyślną pulę usuwamy — węzłami zarządza osobny zasób niżej (zmiany bez przebudowy klastra)
+  remove_default_node_pool = true
+  initial_node_count       = 1
+
+  # VPC-native: pody i serwisy biorą adresy z nazwanych zakresów naszej podsieci
+  ip_allocation_policy {
+    cluster_secondary_range_name  = "pods"
+    services_secondary_range_name = "services"
+  }
+
+  # workload indentity: pody będą mogły dostawać tożsamość GCP bez kluczy (wymagane do Cloud SQL)
+  workload_identity_config {
+    workload_pool = "featureboard-499107.svc.id.goog"
+  }
+
+  # klaster do nauki, będzie regularnie niszczony, na prod domyślnie true
+  deletion_protection = false
+
+  depends_on = [google_project_service.container]
+}
+
+# pula węzłówL 2x e2-medium na spot
+resource "google_container_node_pool" "default" {
+  name = "default-pool"
+  cluster = google_container_cluster.primary.id
+  node_count = 2
+
+  node_config {
+    machine_type = "e2-medium"
+    preemptible  = true
+
+    # dostęp do API GCP kontrolowany przez IAM
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+
+    # wymagane, żeby workload identity działało na tej puli
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+  }
+}

@@ -77,3 +77,56 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
 }
+
+
+# CI może pushować obrazy do rejestru (tylko ta jedna para rola+członek)
+resource "google_artifact_registry_repository_iam_member" "ci_writer" {
+  repository = google_artifact_registry_repository.featureboard.repository_id
+  location   = "europe-central2"
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.github_ci.email}"
+}
+
+# Tożsamość federacyjna repo Explotion80/featureboard może impersonować konto github-ci
+resource "google_service_account_iam_member" "wif_impersonation" {
+  service_account_id = google_service_account.github_ci.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/Explotion80/featureboard"
+}
+
+# API wymagane przez sieć i GKE w Terraformie, żeby nowy projekt wstawał bez ręcznego "services enable"
+resource "google_project_service" "compute" {
+  service = "compute.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "container" {
+  service = "container.googleapis.com"
+  disable_on_destroy = false
+}
+
+# własna sieć VPC, auto create subnetworks=false, żadnych podsieci z automatu
+resource "google_compute_network" "vpc" {
+  name                    = "featureboard-vpc"
+  auto_create_subnetworks = false
+
+  depends_on = [google_project_service.compute]
+}
+
+# podsieć dla klastra. Zakres główny dla węzłów i dwa dodatkowe dla podów i serwisów
+resource "google_compute_subnetwork" "gke" {
+  name = "featureboard-gke"
+  network = google_compute_network.vpc.id
+  region = "europe-central2"
+  ip_cidr_range = "10.0.0.0/24" # węzły: 256 adresów
+
+ secondary_ip_range {
+    range_name    = "pods"
+    ip_cidr_range = "10.1.0.0/16" # pody: hojnie, bo brak adresów dla podów boli najbardziej
+  }
+
+  secondary_ip_range {
+    range_name    = "services"
+    ip_cidr_range = "10.2.0.0/20"
+  }
+}

@@ -84,36 +84,39 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 2 UKOŃCZONA -> wchodzimy w fazę 3 (Terraform)
-- Faza 2 domknięta (2026-06-11): projekt GCP featureboard-499107, Artifact
-  Registry "featureboard" w europe-central2, WIF (pool github + provider
-  github-provider z attribute-condition na repository_owner) z impersonacją
-  service accounta github-ci@featureboard-499107.iam.gserviceaccount.com
-  (workloadIdentityUser dla principalSet repo, artifactregistry.writer na
-  rejestrze). CI pushuje obraz tagowany git SHA, tylko z main (if: push).
-  Lekcja: token_format: access_token wymaga service_account (Direct WIF
-  nie wystarcza do docker login).
-- Ostatni ukończony krok: poprawki po /phase-review (raport lokalnie w audits/,
-  poza repo): (1) pydantic-settings — klasa Settings z wymaganym database_url,
-  walidacja configu przy starcie zamiast os.getenv z pustym defaultem;
-  (2) hardening CI — permissions: contents: read na poziomie workflow, akcje
-  przypięte do commit SHA z komentarzem wersji (checkout v6.0.3, setup-python
-  v6.2.0, trivy-action v0.36.0), cache pip w jobie test; (3) README przepisane
-  pod projekt (stare przeniesione do docs/agent-setup.md), dodany .env.example.
-  Wcześniej w tej fazie: testy integracyjne /notes i /readyz z prawdziwym
-  Postgresem (lokalnie compose db + conftest.py z setdefault; w CI service
-  container postgres:16 z healthcheckiem). Pipeline: lint (ruff) + test
-  (pytest x4, z bazą) -> build (tag = git SHA) -> scan (Trivy, bramka
-  CRITICAL/HIGH). Po drodze: CVE w OpenSSL załatane apt-get upgrade w runtime
-  stage, wyłączony windowsowy Postgres cieniujący port 5432.
+- Aktualna faza: 3 (Terraform) — ok. 60% zrobione
+- Faza 3 postęp (2026-06-12), wszystko w infra/main.tf:
+  (1) Terraform 1.15 (po usunięciu starego 1.10 cieniującego PATH), provider
+  google ~> 7.0; (2) stan w GCS: bucket featureboard-499107-tfstate
+  (wersjonowanie, public_access_prevention), bootstrap lokalnym stanem ->
+  init -migrate-state; (3) importy zasobów z fazy 2 (bloki import, po apply
+  usunięte): rejestr, SA github-ci, pool+provider WIF, bindingi IAM jako
+  *_iam_member (lekcja: _member vs _binding vs _policy — promień rażenia);
+  (4) VPC featureboard-vpc + podsieć featureboard-gke (nodes /24, secondary
+  ranges: pods /16, services /20) + google_project_service dla compute
+  i container; (5) klaster GKE "featureboard": Standard (decyzja vs
+  Autopilot — głębsza nauka schedulingu), strefowy europe-central2-a
+  (darmowy limit), remove_default_node_pool + osobna pula 2x e2-medium
+  spot, workload_identity_config włączone, deletion_protection=false.
+  Zweryfikowany kubectl get nodes (2x Ready). Klaster ZOSTAWIONY WŁĄCZONY
+  (~2-3 zł/dzień; selektywny destroy: terraform destroy -target=
+  google_container_node_pool.default -target=google_container_cluster.primary;
+  NIGDY goły destroy — zniósłby rejestr z obrazami i bucket stanu).
+  Debugowania: stary terraform w PATH (where.exe), plan w złym katalogu,
+  kubectl gadał z docker-desktop zamiast GKE (config get-contexts,
+  get-credentials dopisało kontekst gke_...).
+- Faza 2 domknięta (2026-06-11): WIF z impersonacją github-ci, CI pushuje
+  obraz (tag = git SHA, tylko z main) do Artifact Registry featureboard
+  w europe-central2. Lekcja: token_format: access_token wymaga
+  service_account (Direct WIF nie wystarcza do docker login).
 - Otwarte drobiazgi z audytu (nieblokujące, do ogarnięcia przy okazji):
   brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
   na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
   walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
-- Następny krok: domknięcie Fazy 2 na styku z Fazą 3 — projekt GCP,
-  Artifact Registry, uwierzytelnienie GitHub Actions przez Workload Identity
-  Federation (permissions: id-token: write w jobie build), push obrazu do
-  rejestru. Potem Terraform (stan w GCS, GKE, Cloud SQL).
+- Następny krok: Cloud SQL Postgres z prywatnym IP (private services
+  access w VPC), potem tożsamość aplikacji do bazy (Workload Identity
+  pod->GCP + Secret Manager na hasło), na końcu refaktor zmiennych
+  (variables.tf zamiast powtarzanego project ID/regionu).
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

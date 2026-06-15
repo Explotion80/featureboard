@@ -38,7 +38,9 @@ def resolve_database_url() -> str:
             f"postgresql://{settings.db_user}:{password}"
             f"@{settings.db_host}:5432/{settings.db_name}"
         )
-    raise RuntimeError("Brak konfiguracji bazy: ustaw DATABASE_URL albo DB_HOST + DB_PASSWORD_SECRET")
+    raise RuntimeError(
+        "Brak konfiguracji bazy: ustaw DATABASE_URL albo DB_HOST + DB_PASSWORD_SECRET"
+    )
 
 
 DATABASE_URL = resolve_database_url()

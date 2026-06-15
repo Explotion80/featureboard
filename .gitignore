@@ -21,3 +21,8 @@ audits/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# lokalna dokumentacja (Word/PDF) i archiwa
+*.docx
+*.pdf
+*.zip

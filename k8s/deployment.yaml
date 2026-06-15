@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: featureboard
+  namespace: featureboard
+  labels:
+    app: featureboard
+spec:
+  replicas: 2                       # dwie kopie — Service rozłoży ruch, padnięcie poda nie zabija usługi
+  selector:
+    matchLabels:
+      app: featureboard
+  template:
+    metadata:
+      labels:
+        app: featureboard           # MUSI zgadzać się z selektorem wyżej i z Service niżej
+    spec:
+      serviceAccountName: featureboard   # KSA z Workload Identity — pod czyta sekret jako featureboard-app
+      securityContext:
+        runAsNonRoot: true               # twarda zasada projektu
+        runAsUser: 1001                  # użytkownik 'app' z naszego Dockerfile
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: europe-central2-docker.pkg.dev/featureboard-499107/featureboard/featureboard:4963f5852a08a4aee3d6829ed6daa8827350a19b
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ENVIRONMENT
+              value: "gke-dev"
+            - name: APP_VERSION
+              value: "319dbda"
+            - name: DB_HOST                       # prywatne IP Cloud SQL
+              value: "10.60.0.3"
+            - name: DB_NAME
+              value: "featureboard"
+            - name: DB_USER
+              value: "featureboard"
+            - name: DB_PASSWORD_SECRET            # pełna nazwa wersji sekretu — hasło pobierane przez WI
+              value: "projects/featureboard-499107/secrets/featureboard-db-password/versions/latest"
+          resources:
+            requests:                  # ile pod gwarantowanie dostaje (scheduling)
+              cpu: 50m
+              memory: 128Mi
+            limits:                    # górny limit (ochrona węzła przed zżarciem zasobów)
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:               # "czy żyje" — nie tyka bazy
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:              # "czy gotowy" — sprawdza bazę; 503 = pod wypadа z Service
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: featureboard
+  namespace: featureboard
+spec:
+  selector:
+    app: featureboard            # kieruje ruch do podów z tą etykietą
+  ports:
+    - port: 80
+      targetPort: 8000

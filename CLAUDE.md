@@ -84,8 +84,44 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 3 (Terraform) — ok. 60% zrobione
-- Faza 3 postęp (2026-06-12), wszystko w infra/main.tf:
+- Aktualna faza: 4 (Kubernetes) W TOKU — aplikacja DZIAŁA na GKE i łączy się
+  z Cloud SQL; zostało: Helm chart, Kustomize overlaye, Ingress.
+- Faza 4 postęp (2026-06-15), katalog k8s/:
+  (1) k8s/bootstrap.yaml — namespace "featureboard" + KSA "featureboard"
+  z adnotacją iam.gke.io/gcp-service-account=featureboard-app@... (domyka
+  Workload Identity poda). Zweryfikowane test-podem: pod odczytał sekret
+  z Secret Managera przez WI. (2) Aplikacja czyta hasło z Secret Managera:
+  app/main.py ma Settings z opcjonalnym database_url + db_host/db_name/db_user/
+  db_password_secret; resolve_database_url() — jeśli jest DATABASE_URL (lokal/CI)
+  użyj, inaczej pobierz hasło z SM i złóż URL. WAŻNE: init_db/readyz/create_note/
+  list_notes MUSZĄ używać modułowej DATABASE_URL, nie settings.database_url
+  (bug, który padł tylko na klastrze — ścieżka chmurowa nietestowana lokalnie
+  ani w CI, bo tam DATABASE_URL zawsze ustawiony). google-cloud-secret-manager
+  w requirements (lazy import w funkcji). (3) k8s/deployment.yaml — Deployment
+  (2 repliki, obraz tag=SHA, requests/limits, liveness /health + readiness
+  /readyz, runAsNonRoot/1001, drop ALL caps, KSA, env DB_HOST=prywatne IP
+  10.60.0.3 + DB_PASSWORD_SECRET, BEZ DATABASE_URL by wymusić ścieżkę chmurową)
+  + Service ClusterIP 80->8000. Weryfikacja: port-forward, POST/GET /notes
+  działa, notatka w Cloud SQL, /readyz ready. Obraz pobiera się z AR bez
+  dodatkowych uprawnień (domyślne SA węzłów ma dostęp). Lekcja Windows:
+  curl.exe + JSON = piekło cytowania -> Invoke-RestMethod albo /docs.
+- Faza 3 domknięta (2026-06-15): (A) Cloud SQL Postgres "featureboard-db"
+  z PRYWATNYM IP — Private Services Access: google_compute_global_address
+  (VPC_PEERING, /16, auto 10.60.0.0) + google_service_networking_connection
+  peeruje nasz VPC z siecią usług Google; instancja ENTERPRISE/db-f1-micro
+  (lekcja: db-f1-micro nieprawidłowy dla domyślnego ENTERPRISE_PLUS -> trzeba
+  jawnie edition=ENTERPRISE), ipv4_enabled=false. Baza+user "featureboard",
+  hasło z random_password. UWAGA: Cloud SQL ZOSTAWIAMY włączony między sesjami
+  — po usunięciu nazwa zarezerwowana ~tydzień; selektywny destroy obejmuje
+  tylko klaster+pula. (B) Hasło w Secret Manager (featureboard-db-password),
+  konto app featureboard-app z secretmanager.secretAccessor TYLKO na ten
+  sekret; Workload Identity GKE: member serviceAccount:PROJECT.svc.id.goog
+  [featureboard/featureboard] (KSA powstanie w fazie 4 — forward commitment).
+  Świadomie BEZ cloudsql.client (łączymy się po prywatnym IP + hasło, IAM nie
+  w ścieżce połączenia). (C) variables.tf: project_id, region, zone,
+  github_owner, github_repo (refaktor => terraform plan No changes; backend
+  bucket MUSI zostać literałem — backend nie czyta zmiennych).
+- Faza 3 wcześniej (2026-06-12), wszystko w infra/main.tf:
   (1) Terraform 1.15 (po usunięciu starego 1.10 cieniującego PATH), provider
   google ~> 7.0; (2) stan w GCS: bucket featureboard-499107-tfstate
   (wersjonowanie, public_access_prevention), bootstrap lokalnym stanem ->
@@ -113,10 +149,14 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
   na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
   walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
-- Następny krok: Cloud SQL Postgres z prywatnym IP (private services
-  access w VPC), potem tożsamość aplikacji do bazy (Workload Identity
-  pod->GCP + Secret Manager na hasło), na końcu refaktor zmiennych
-  (variables.tf zamiast powtarzanego project ID/regionu).
+- Następny krok (Faza 4 - Kubernetes): własny Helm chart aplikacji
+  (Deployment z requests/limits + liveness/readiness probes +
+  securityContext runAsNonRoot; Service; Ingress) + Kustomize base +
+  overlaye dev/staging/prod (różnice tylko: repliki, zasoby, config, hosty).
+  Wdrożenie na GKE i realne połączenie z Cloud SQL: utworzyć KSA
+  "featureboard" w namespace "featureboard" z adnotacją iam.gke.io/
+  gcp-service-account=featureboard-app@... (domyka Workload Identity poda),
+  wstrzyknąć hasło z Secret Managera, DATABASE_URL na prywatne IP bazy.
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

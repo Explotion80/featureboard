@@ -22,14 +22,14 @@ terraform {
 
 # Domyślny projekt i region dla wszystkich zasobów poniżej
 provider "google" {
-  project = "featureboard-499107"
-  region  = "europe-central2"
+  project = var.project_id
+  region = var.region
 }
 
 # Bucket na plik stanu Terraforma; wersjonowanie, możliwość odzyskania stanu po uszkodzeniu
 resource "google_storage_bucket" "tfstate" {
   name     = "featureboard-499107-tfstate"
-  location = "europe-central2"
+  location = var.region
 
   versioning {
     enabled = true
@@ -43,7 +43,7 @@ resource "google_storage_bucket" "tfstate" {
 # Rejestr obrazów Dockera, tu CI pushuje obraz aplikacji (tag = git SHA)
 resource "google_artifact_registry_repository" "featureboard" {
   repository_id = "featureboard"
-  location      = "europe-central2"
+  location = var.region
   format        = "DOCKER"
   description   = "FeatureBoard container images"
 }
@@ -74,7 +74,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   }
 
   # Bramka: odrzucaj tokeny z repozytoriów innych właścicieli niż Explotion80
-  attribute_condition = "assertion.repository_owner=='Explotion80'"
+  attribute_condition = "assertion.repository_owner=='${var.github_owner}'"
 
   # Adres wystawcy tokenów — stąd GCP pobiera klucze publiczne GitHuba do weryfikacji podpisów
   oidc {
@@ -86,7 +86,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 # CI może pushować obrazy do rejestru (tylko ta jedna para rola+członek)
 resource "google_artifact_registry_repository_iam_member" "ci_writer" {
   repository = google_artifact_registry_repository.featureboard.repository_id
-  location   = "europe-central2"
+  location = var.region
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.github_ci.email}"
 }
@@ -95,7 +95,7 @@ resource "google_artifact_registry_repository_iam_member" "ci_writer" {
 resource "google_service_account_iam_member" "wif_impersonation" {
   service_account_id = google_service_account.github_ci.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/Explotion80/featureboard"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_owner}/${var.github_repo}"
 }
 
 # API wymagane przez sieć i GKE w Terraformie, żeby nowy projekt wstawał bez ręcznego "services enable"
@@ -121,7 +121,7 @@ resource "google_compute_network" "vpc" {
 resource "google_compute_subnetwork" "gke" {
   name = "featureboard-gke"
   network = google_compute_network.vpc.id
-  region = "europe-central2"
+  region = var.region
   ip_cidr_range = "10.0.0.0/24" # węzły: 256 adresów
 
  secondary_ip_range {
@@ -138,7 +138,7 @@ resource "google_compute_subnetwork" "gke" {
 # klaster gke standard, strefowy (darmowy limit GCP, na prod regionalny)
 resource "google_container_cluster" "primary" {
   name     = "featureboard"
-  location = "europe-central2-a"
+  location = var.zone
 
   network    = google_compute_network.vpc.id
   subnetwork = google_compute_subnetwork.gke.id
@@ -155,7 +155,7 @@ resource "google_container_cluster" "primary" {
 
   # workload indentity: pody będą mogły dostawać tożsamość GCP bez kluczy (wymagane do Cloud SQL)
   workload_identity_config {
-    workload_pool = "featureboard-499107.svc.id.goog"
+    workload_pool = "${var.project_id}.svc.id.goog"
   }
 
   # klaster do nauki, będzie regularnie niszczony, na prod domyślnie true
@@ -219,7 +219,7 @@ resource "google_service_networking_connection" "psa" {
 resource "google_sql_database_instance" "postgres" {
   name             = "featureboard-db"
   database_version = "POSTGRES_16"
-  region           = "europe-central2"
+  region           = var.region
 
   depends_on = [google_service_networking_connection.psa]
 
@@ -302,5 +302,5 @@ resource "google_secret_manager_secret_iam_member" "app_reads_password" {
 resource "google_service_account_iam_member" "app_workload_identity" {
   service_account_id = google_service_account.app.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:featureboard-499107.svc.id.goog[featureboard/featureboard]"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[featureboard/featureboard]"
 }

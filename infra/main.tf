@@ -7,6 +7,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 7.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 
   # Stan Terraforma trzymany w buckecie GCS — współdzielony i wersjonowany
@@ -179,4 +183,80 @@ resource "google_container_node_pool" "default" {
       mode = "GKE_METADATA"
     }
   }
+}
+
+# api: łączenie z usługą google - cloud sql - z naszą siecią + zarządzanie Cloud SQL
+resource "google_project_service" "servicenetworking" {
+  service = "servicenetworking.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "sqladmin" {
+  service = "sqladmin.googleapis.com"
+  disable_on_destroy = false
+}
+
+# pula adresów w naszym VPC zarezerwowana dla zarządanzych usług Google - Private Services Access, potrzebna do Cloud SQL
+resource "google_compute_global_address" "psa_range" {
+  name = "featureboard-psa"
+  purpose = "VPC_PEERING"
+  address_type = "INTERNAL"
+  prefix_length = 16
+  network = google_compute_network.vpc.id
+}
+
+# Peering naszego VPC z siecią usług Google - cloud sql z prywatny IP
+resource "google_service_networking_connection" "psa" {
+  network = google_compute_network.vpc.id
+  service = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.psa_range.name]
+
+  depends_on = [google_project_service.servicenetworking]
+}
+
+
+# instancja PostgreSQL z prywatnym IP
+resource "google_sql_database_instance" "postgres" {
+  name             = "featureboard-db"
+  database_version = "POSTGRES_16"
+  region           = "europe-central2"
+
+  depends_on = [google_service_networking_connection.psa]
+
+  settings {
+    edition = "ENTERPRISE"
+    tier              = "db-f1-micro" # najmniejszy; gdyby GCP odrzucił: gcloud sql tiers list
+    availability_type = "ZONAL"       # jedna strefa (na prod: REGIONAL dla HA)
+    disk_size         = 10
+
+    ip_configuration {
+      ipv4_enabled    = false                          # KLUCZOWE: brak publicznego IP
+      private_network = google_compute_network.vpc.id  # baza w naszym VPC przez peering
+    }
+
+    backup_configuration {
+      enabled = true
+    }
+  }
+  
+  deletion_protection = false
+}
+
+# Baza danych aplikacji wewnątrz instancji
+resource "google_sql_database" "featureboard" {
+  name     = "featureboard"
+  instance = google_sql_database_instance.postgres.name
+}
+
+# Hasło generowane przez Terraform (nie wpisujemy go ręcznie nigdzie)
+resource "random_password" "db" {
+  length  = 32
+  special = false # alfanumeryczne — bez znaków psujących connection string
+}
+
+# Użytkownik aplikacji
+resource "google_sql_user" "app" {
+  name     = "featureboard"
+  instance = google_sql_database_instance.postgres.name
+  password = random_password.db.result
 }

@@ -48,7 +48,7 @@ DATABASE_URL = resolve_database_url()
 
 
 def init_db():
-    with psycopg.connect(settings.database_url, connect_timeout=5) as conn:
+    with psycopg.connect(DATABASE_URL, connect_timeout=5) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS notes (
@@ -88,7 +88,7 @@ def health():
 @app.get("/readyz")
 def readyz():
     try:
-        with psycopg.connect(settings.database_url, connect_timeout=4) as conn:
+        with psycopg.connect(DATABASE_URL, connect_timeout=2) as conn:
             conn.execute("SELECT 1")
         return {"status": "ready"}
     except Exception:
@@ -97,7 +97,7 @@ def readyz():
     
 @app.post("/notes")
 def create_note(note: NoteIn):
-    with psycopg.connect(settings.database_url) as conn:
+    with psycopg.connect(DATABASE_URL) as conn:   
         row = conn.execute(
             "INSERT INTO notes (content) VALUES (%s) RETURNING id, content, created_at",
             (note.content,),
@@ -106,7 +106,7 @@ def create_note(note: NoteIn):
 
 @app.get("/notes")
 def list_notes():
-    with psycopg.connect(settings.database_url) as conn:
+    with psycopg.connect(DATABASE_URL) as conn:   
         rows = conn.execute(
             "SELECT id, content, created_at FROM notes ORDER BY id"
         ).fetchall()

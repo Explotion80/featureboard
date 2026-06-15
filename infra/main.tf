@@ -260,3 +260,47 @@ resource "google_sql_user" "app" {
   instance = google_sql_database_instance.postgres.name
   password = random_password.db.result
 }
+
+
+# APIT Secret Manager
+resource "google_project_service" "secretmanager" {
+  service            = "secretmanager.googleapis.com"
+  disable_on_destroy = false
+}
+
+# skrytka na hasła do bazy
+resource "google_secret_manager_secret" "db_password" {
+  secret_id = "featureboard-db-password"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [ google_project_service.secretmanager ]
+}
+
+# zawartość skrytki - wygenerowane hasło
+resource "google_secret_manager_secret_version" "db_password" {
+  secret      = google_secret_manager_secret.db_password.id
+  secret_data = random_password.db.result
+}
+
+# konto serwisowe aplikacji - GKE
+resource "google_service_account" "app" {
+  account_id = "featureboard-app"
+  display_name = "FeaTureBoard application"
+}
+
+# aplikacja może odczytać to konkretne hasło
+resource "google_secret_manager_secret_iam_member" "app_reads_password" {
+  secret_id = google_secret_manager_secret.db_password.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.app.email}"
+}
+
+# Workload Identity: pod z KSA "featureboard/featureboard" działa jako to konto GCP
+resource "google_service_account_iam_member" "app_workload_identity" {
+  service_account_id = google_service_account.app.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:featureboard-499107.svc.id.goog[featureboard/featureboard]"
+}

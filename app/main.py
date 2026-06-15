@@ -7,15 +7,43 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # pole bez wartosci domyślnej = wymagane. Brak zmiennej środowiskowej
-    # DATABASE_URL zatrzyma start apki czytelnym błędem walidacji.
-    database_url: str
-    
-    # pola z deafultami są opcjonalne, jak dotychczasowe os.getenv(...., default)
     environment: str = "local"
     app_version: str = "0.0.0-dev"
-    
+
+    # Wariant lokalny / CI: pełny URL podany wprost
+    database_url: str | None = None
+
+    # Wariant chmurowy: składniki + nazwa sekretu z hasłem w Secret Managerze
+    db_host: str | None = None
+    db_name: str = "featureboard"
+    db_user: str = "featureboard"
+    db_password_secret: str | None = None  # pełna nazwa wersji sekretu
+
+
 settings = Settings()
+
+
+def resolve_database_url() -> str:
+    # 1) Jeśli mamy gotowy URL (lokalnie/CI) — używamy go bez sięgania do chmury
+    if settings.database_url:
+        return settings.database_url
+    # 2) Wariant chmurowy: pobierz hasło z Secret Managera (przez Workload Identity)
+    if settings.db_host and settings.db_password_secret:
+        from google.cloud import secretmanager
+
+        client = secretmanager.SecretManagerServiceClient()
+        resp = client.access_secret_version(name=settings.db_password_secret)
+        password = resp.payload.data.decode()
+        return (
+            f"postgresql://{settings.db_user}:{password}"
+            f"@{settings.db_host}:5432/{settings.db_name}"
+        )
+    raise RuntimeError("Brak konfiguracji bazy: ustaw DATABASE_URL albo DB_HOST + DB_PASSWORD_SECRET")
+
+
+DATABASE_URL = resolve_database_url()
+
+
 
 def init_db():
     with psycopg.connect(settings.database_url, connect_timeout=5) as conn:

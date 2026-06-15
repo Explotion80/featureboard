@@ -84,8 +84,19 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 4 (Kubernetes) W TOKU — aplikacja DZIAŁA na GKE i łączy się
-  z Cloud SQL; zostało: Helm chart, Kustomize overlaye, Ingress.
+- Aktualna faza: 4 (Kubernetes) W TOKU — aplikacja DZIAŁA na GKE przez Helm,
+  łączy się z Cloud SQL; zostało: Kustomize overlaye (dev/staging/prod), Ingress.
+- Faza 4 Helm (2026-06-15): chart w k8s/featureboard/ (Chart.yaml, values.yaml,
+  templates/deployment.yaml + service.yaml). Wartości w values: replicaCount,
+  image.repository+tag, config.environment/appVersion, database.host/name/user/
+  passwordSecret, serviceAccountName, resources, service.port. Deploy:
+  helm upgrade --install featureboard k8s/featureboard -n featureboard.
+  PUŁAPKA, która padła: values miały stary tag obrazu (sprzed fixa DATABASE_URL)
+  -> CrashLoop z tym samym hashem ReplicaSetu co buggy deploy (hash = sygnatura
+  szablonu/obrazu). Działający tag = obraz z commita "fix: use resolved
+  DATABASE_URL" (4963f58...). Surowe k8s/deployment.yaml usunięte (zastąpione
+  chartem); k8s/bootstrap.yaml (namespace+KSA) zostaje osobno. helm history/
+  rollback dostępne. Ręczne wstawianie tagu zniknie w fazie 5 (GitOps).
 - Faza 4 postęp (2026-06-15), katalog k8s/:
   (1) k8s/bootstrap.yaml — namespace "featureboard" + KSA "featureboard"
   z adnotacją iam.gke.io/gcp-service-account=featureboard-app@... (domyka

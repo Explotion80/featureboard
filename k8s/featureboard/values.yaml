@@ -1,0 +1,28 @@
+replicaCount: 2
+
+image:
+  repository: europe-central2-docker.pkg.dev/featureboard-499107/featureboard/featureboard
+  tag: "4963f5852a08a4aee3d6829ed6daa8827350a19b"
+
+config:
+  environment: gke-dev
+  appVersion: "319dbda"
+
+database:
+  host: "10.60.0.3"
+  name: featureboard
+  user: featureboard
+  passwordSecret: "projects/featureboard-499107/secrets/featureboard-db-password/versions/latest"
+
+serviceAccountName: featureboard
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+service:
+  port: 80

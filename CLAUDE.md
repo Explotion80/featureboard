@@ -84,8 +84,25 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 4 (Kubernetes) W TOKU — aplikacja DZIAŁA na GKE przez Helm,
-  łączy się z Cloud SQL; zostało: Kustomize overlaye (dev/staging/prod), Ingress.
+- Aktualna faza: 4 UKOŃCZONA -> Faza 5 (Argo CD / GitOps)
+- Faza 4 Ingress (2026-06-16): k8s/featureboard/templates/ingress.yaml
+  (warunkowy {{- if .Values.ingress.enabled }}), włączony w values-dev.yaml.
+  GKE HTTP LB przez adnotację kubernetes.io/ingress.class: "gce" (NIE
+  ingressClassName — na tym klastrze brak obiektu IngressClass "gce", więc
+  ingressClassName=gce nie był przez nikogo przejmowany: zero eventów, brak
+  NEG; objaw = describe ingress Events <none> + kubectl get ingressclass pusty).
+  Service ma adnotację cloud.google.com/neg '{"ingress":true}' (container-native
+  LB na VPC-native). Aplikacja działa z publicznego IP (curl / i /readyz OK).
+  UWAGA KOSZT: LB ~18 USD/mies. — przed destroy klastra ZAWSZE
+  helm uninstall featureboard -n featureboard (usuwa Ingress -> kasuje LB),
+  inaczej osierocony płatny LB.
+- DECYZJA (2026-06-15): Kustomize ŚWIADOMIE POMINIĘTY — zostajemy Helm-only.
+  Środowiska dev/staging/prod robimy plikami k8s/values-{dev,staging,prod}.yaml
+  (tylko różnice: replicaCount, resources, config.environment), nakładanymi przez
+  helm upgrade -f. Roadmapa wymieniała "Helm + Kustomize", więc phase-review
+  może to zgłosić jako brak — świadomy tradeoff (Helm values to kompletne
+  rozwiązanie wielu środowisk; Kustomize byłoby redundantne). Koncept Kustomize
+  (base + patche, bez templatingu) znany do obrony na rozmowie.
 - Faza 4 Helm (2026-06-15): chart w k8s/featureboard/ (Chart.yaml, values.yaml,
   templates/deployment.yaml + service.yaml). Wartości w values: replicaCount,
   image.repository+tag, config.environment/appVersion, database.host/name/user/
@@ -160,14 +177,14 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
   na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
   walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
-- Następny krok (Faza 4 - Kubernetes): własny Helm chart aplikacji
-  (Deployment z requests/limits + liveness/readiness probes +
-  securityContext runAsNonRoot; Service; Ingress) + Kustomize base +
-  overlaye dev/staging/prod (różnice tylko: repliki, zasoby, config, hosty).
-  Wdrożenie na GKE i realne połączenie z Cloud SQL: utworzyć KSA
-  "featureboard" w namespace "featureboard" z adnotacją iam.gke.io/
-  gcp-service-account=featureboard-app@... (domyka Workload Identity poda),
-  wstrzyknąć hasło z Secret Managera, DATABASE_URL na prywatne IP bazy.
+- Następny krok (Faza 5 - Argo CD / GitOps): zainstalować Argo CD na klastrze,
+  utworzyć Application wskazującą na repo (chart k8s/featureboard + values per
+  env), włączyć auto-sync (Argo pilnuje, że stan klastra = repo) i promocję
+  dev -> staging -> prod. Cel: koniec ręcznego helm upgrade i ręcznego
+  wstawiania tagu obrazu w values — Argo synchronizuje z gita. Do przemyślenia:
+  jak CI ma aktualizować tag obrazu w repo (image updater / commit z pipeline).
+  PRZED kolejną dłuższą przerwą: helm uninstall featureboard -n featureboard
+  (kasuje LB!), potem selektywny terraform destroy klastra; Cloud SQL zostaje.
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

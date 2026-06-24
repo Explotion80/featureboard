@@ -3,7 +3,7 @@
 variable "project_id" {
   description = "ID projektu GCP"
   type        = string
-  default     = "featureboard-499107"
+  default     = "featureboard-500408"
 }
 
 variable "region" {

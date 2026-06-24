@@ -15,7 +15,7 @@ terraform {
 
   # Stan Terraforma trzymany w buckecie GCS — współdzielony i wersjonowany
   backend "gcs" {
-    bucket = "featureboard-499107-tfstate"
+    bucket = "featureboard-500408-tfstate"
     prefix = "terraform/state"
   }
 }
@@ -28,7 +28,7 @@ provider "google" {
 
 # Bucket na plik stanu Terraforma; wersjonowanie, możliwość odzyskania stanu po uszkodzeniu
 resource "google_storage_bucket" "tfstate" {
-  name     = "featureboard-499107-tfstate"
+  name     = "featureboard-500408-tfstate"
   location = var.region
 
   versioning {
@@ -157,7 +157,12 @@ resource "google_container_cluster" "primary" {
   workload_identity_config {
     workload_pool = "${var.project_id}.svc.id.goog"
   }
-
+  # Dodatek HTTP Load Balancing = kontroler Ingress (glbc). Bez niego Ingress nie dostaje adresu.
+  addons_config {
+    http_load_balancing {
+      disabled = false
+    }
+  }
   # klaster do nauki, będzie regularnie niszczony, na prod domyślnie true
   deletion_protection = false
 
@@ -303,4 +308,6 @@ resource "google_service_account_iam_member" "app_workload_identity" {
   service_account_id = google_service_account.app.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[featureboard/featureboard]"
+
+  depends_on = [google_container_cluster.primary]
 }

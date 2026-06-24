@@ -79,7 +79,6 @@ def root():
         "version": settings.app_version,
     }
 
-
 @app.get("/health")
 def health():
     return {"status": "ok"}

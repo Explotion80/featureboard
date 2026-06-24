@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: europe-central2-docker.pkg.dev/featureboard-499107/featureboard/featureboard
+  repository: europe-central2-docker.pkg.dev/featureboard-500408/featureboard/featureboard
   tag: "4963f5852a08a4aee3d6829ed6daa8827350a19b"
 
 config:
@@ -9,10 +9,10 @@ config:
   appVersion: "319dbda"
 
 database:
-  host: "10.60.0.3"
+  host: "10.147.0.3"
   name: featureboard
   user: featureboard
-  passwordSecret: "projects/featureboard-499107/secrets/featureboard-db-password/versions/latest"
+  passwordSecret: "projects/featureboard-500408/secrets/featureboard-db-password/versions/latest"
 
 serviceAccountName: featureboard
 

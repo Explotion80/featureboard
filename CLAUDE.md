@@ -151,7 +151,7 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   bucket MUSI zostać literałem — backend nie czyta zmiennych).
 - Faza 3 wcześniej (2026-06-12), wszystko w infra/main.tf:
   (1) Terraform 1.15 (po usunięciu starego 1.10 cieniującego PATH), provider
-  google ~> 7.0; (2) stan w GCS: bucket featureboard-499107-tfstate
+  google ~> 7.0; (2) stan w GCS: bucket featureboard-500408-tfstate
   (wersjonowanie, public_access_prevention), bootstrap lokalnym stanem ->
   init -migrate-state; (3) importy zasobów z fazy 2 (bloki import, po apply
   usunięte): rejestr, SA github-ci, pool+provider WIF, bindingi IAM jako

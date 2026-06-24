@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: app
-          image: europe-central2-docker.pkg.dev/featureboard-499107/featureboard/featureboard:4963f5852a08a4aee3d6829ed6daa8827350a19b
+          image: europe-central2-docker.pkg.dev/featureboard-500408/featureboard/featureboard:4963f5852a08a4aee3d6829ed6daa8827350a19b
           ports:
             - containerPort: 8000
           env:
@@ -38,7 +38,7 @@ spec:
             - name: DB_USER
               value: "featureboard"
             - name: DB_PASSWORD_SECRET            # pełna nazwa wersji sekretu — hasło pobierane przez WI
-              value: "projects/featureboard-499107/secrets/featureboard-db-password/versions/latest"
+              value: "projects/featureboard-500408/secrets/featureboard-db-password/versions/latest"
           resources:
             requests:                  # ile pod gwarantowanie dostaje (scheduling)
               cpu: 50m

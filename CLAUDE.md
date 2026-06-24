@@ -85,6 +85,24 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
 - Aktualna faza: 4 UKOŃCZONA -> Faza 5 (Argo CD / GitOps)
+- MIGRACJA NA NOWE KONTO (2026-06-24): stary projekt featureboard-499107
+  usunięty (koniec triala). WSZYSTKO odtworzone Terraformem na NOWYM projekcie
+  featureboard-500408 (numer 357352947111). Nowy prywatny IP Cloud SQL:
+  10.147.0.3 (w values.yaml database.host). Bootstrap stanu od nowa
+  (zakomentowany backend -> terraform init -reconfigure / local apply ->
+  odkomentowany -> init -migrate-state -> plan No changes). Podmienione
+  wszystkie odniesienia do projektu w repo (variables.tf, main.tf backend+bucket,
+  values.yaml image+passwordSecret, bootstrap.yaml, ci.yml IMAGE+SA+numer
+  w workload_identity_provider). Usunięty martwy k8s/deployment.yaml.
+  DWA FIXY wymuszone czystym projektem (na starym ukryte):
+  (1) google_service_account_iam_member.app_workload_identity wymaga
+  depends_on=[google_container_cluster.primary] — pula PROJECT.svc.id.goog
+  powstaje dopiero z klastrem (Identity Pool does not exist).
+  (2) świeży projekt NIE nadaje już Editora domyślnemu SA Compute -> węzły
+  GKE dostają ErrImagePull 403 z AR; trzeba jawnie
+  google_artifact_registry_repository_iam_member (rola artifactregistry.reader)
+  dla member serviceAccount:${data.google_project.current.number}-compute@
+  developer.gserviceaccount.com.
 - Faza 4 Ingress (2026-06-16): k8s/featureboard/templates/ingress.yaml
   (warunkowy {{- if .Values.ingress.enabled }}), włączony w values-dev.yaml.
   GKE HTTP LB przez adnotację kubernetes.io/ingress.class: "gce" (NIE

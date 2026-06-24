@@ -311,3 +311,14 @@ resource "google_service_account_iam_member" "app_workload_identity" {
 
   depends_on = [google_container_cluster.primary]
 }
+
+# Numer projektu (do złożenia adresu domyślnego SA węzłów)
+data "google_project" "current" {}
+
+# Węzły GKE (domyślne konto Compute) mogą POBIERAĆ obrazy z naszego rejestru
+resource "google_artifact_registry_repository_iam_member" "nodes_reader" {
+  repository = google_artifact_registry_repository.featureboard.repository_id
+  location   = "europe-central2"
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}

@@ -84,7 +84,21 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 4 UKOŃCZONA -> Faza 5 (Argo CD / GitOps)
+- Aktualna faza: 5 (Argo CD / GitOps) W TOKU
+- Faza 5 postęp (2026-06-25): Argo CD v3.4.4 zainstalowany na klastrze w ns
+  argocd (kubectl apply --server-side --force-conflicts — bez server-side CRD
+  applicationsets za duży na adnotację last-applied-config). UI przez
+  port-forward svc/argocd-server 8080:443 (https!), hasło z secret
+  argocd-initial-admin-secret. Pierwsza Application: argocd/application-dev.yaml
+  (deklaratywnie, NIE przez UI New App — bo definicja ma być w gicie): repo
+  Explotion80/featureboard, path k8s/featureboard, helm valueFiles ../values-dev.yaml,
+  destination ns featureboard, syncPolicy automated prune+selfHeal. Przejął
+  istniejące zasoby (Synced/Healthy). Przetestowane na żywo: (1) push replicaCount
+  1->2 => Argo sam wdrożył 2 pody; (2) ręczny kubectl scale --replicas=1 =>
+  selfHeal cofnął do 2. ZOSTAŁO w fazie 5: promocja dev->staging->prod (osobne
+  Application + namespace per env) oraz jak CI ma aktualizować tag obrazu w gicie
+  (CI commit z pipeline albo Argo CD Image Updater).
+- (poprzednio) Faza 4 UKOŃCZONA -> Faza 5 (Argo CD / GitOps)
 - MIGRACJA NA NOWE KONTO (2026-06-24): stary projekt featureboard-499107
   usunięty (koniec triala). WSZYSTKO odtworzone Terraformem na NOWYM projekcie
   featureboard-500408 (numer 357352947111). Nowy prywatny IP Cloud SQL:

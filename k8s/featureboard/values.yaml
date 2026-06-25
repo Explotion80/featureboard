@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: europe-central2-docker.pkg.dev/featureboard-500408/featureboard/featureboard
-  tag: "b209a85e3b8d77e33156141abc847f222830e26d"   # <- nowy SHA (był stary 4963f58)
+  tag: "347fe6bb9036e764638b603b94141265bdeed5c1"
 
 config:
   environment: gke-dev

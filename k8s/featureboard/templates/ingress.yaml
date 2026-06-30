@@ -3,7 +3,6 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: featureboard
-  namespace: featureboard
   annotations:
     kubernetes.io/ingress.class: "gce"
 spec:

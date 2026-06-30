@@ -2,4 +2,4 @@ replicaCount: 2
 configL:
  environment: staging
 image:
-  tag: "347fe6bb9036e764638b603b94141265bdeed5c1"
+  tag: "4e1835f483305ac7b5e2b4f760fc1324d674bee7"

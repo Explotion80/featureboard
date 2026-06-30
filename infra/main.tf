@@ -303,11 +303,14 @@ resource "google_secret_manager_secret_iam_member" "app_reads_password" {
   member    = "serviceAccount:${google_service_account.app.email}"
 }
 
-# Workload Identity: pod z KSA "featureboard/featureboard" działa jako to konto GCP
+# Workload Identity: KSA "featureboard" w każdym namespace środowiska
+# może działać jako konto GCP featureboard-app (czyta sekret z bazy).
 resource "google_service_account_iam_member" "app_workload_identity" {
+  for_each = toset(["featureboard-dev", "featureboard-staging"])
+
   service_account_id = google_service_account.app.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[featureboard/featureboard]"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[${each.value}/featureboard]"
 
   depends_on = [google_container_cluster.primary]
 }

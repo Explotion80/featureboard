@@ -2,8 +2,7 @@ replicaCount: 2
 
 image:
   repository: europe-central2-docker.pkg.dev/featureboard-500408/featureboard/featureboard
-  tag: "347fe6bb9036e764638b603b94141265bdeed5c1"
-
+  
 config:
   environment: gke-dev
   appVersion: "319dbda"

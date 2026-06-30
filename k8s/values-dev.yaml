@@ -10,3 +10,5 @@ resources:
     memory: 256Mi
 ingress:
   enabled: true
+image:
+  tag: "347fe6bb9036e764638b603b94141265bdeed5c1"

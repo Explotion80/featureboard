@@ -1,12 +1,25 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: featureboard
+  name: featureboard-dev
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: featureboard
-  namespace: featureboard
+  namespace: featureboard-dev
+  annotations:
+    iam.gke.io/gcp-service-account: featureboard-app@featureboard-500408.iam.gserviceaccount.com
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: featureboard-staging
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: featureboard
+  namespace: featureboard-staging
   annotations:
     iam.gke.io/gcp-service-account: featureboard-app@featureboard-500408.iam.gserviceaccount.com

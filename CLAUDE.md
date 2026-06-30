@@ -84,7 +84,28 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 5 (Argo CD / GitOps) W TOKU
+- Aktualna faza: 5 UKOŃCZONA -> Faza 6 (Argo Rollouts: canary)
+- Faza 5 domknięta (2026-06-30): (A) Pętla GitOps zamknięta — CI po pushu obrazu
+  sam wpisuje tag do gita: krok "Update image tag" (sed na k8s/values-dev.yaml,
+  commit "[skip ci]" by uniknąć pętli, permissions contents:write, push
+  origin HEAD:main). Dev wdraża się automatycznie. (B) Multi-env przez
+  ApplicationSet (argocd/applicationset.yaml, goTemplate, list generator
+  env: dev/staging) -> generuje 2 Applications, ns featureboard-{env},
+  valueFiles ../values-{env}.yaml. Stara pojedyncza Application + ns
+  featureboard usunięte. (C) Tag PER ŚRODOWISKO: image.tag wyjęty z bazowego
+  values.yaml do values-{env}.yaml; CI bumpuje TYLKO dev; staging/prod tag
+  zmienia się jedynie przy świadomej PROMOCJI (commit/PR). Promocja dev->staging
+  = przeniesienie sprawdzonego tagu (ten sam niezmienny obraz, nie rebuild).
+  (D) Per-env WI bindingi w Terraformie przez for_each
+  (toset[featureboard-dev, featureboard-staging]). Ingress tylko na dev (1 LB);
+  staging bez Ingressu (port-forward); wspólna Cloud SQL (na prod izolować).
+  LEKCJE: (1) chart NIE może zaszywać metadata.namespace — psuło per-env
+  ("namespaces featureboard not found"); namespace ma dawać destination Argo /
+  helm -n. (2) CI bot commituje do main -> git pull --rebase przed lokalną
+  pracą; konflikt rebase na values.yaml (bot bumpnął tag / my usunęliśmy)
+  rozwiązany zostawiając naszą wersję. Prod = dopisać "- env: prod" do listy
+  ApplicationSet + values-prod.yaml (wzorzec gotowy, nieuruchomiony dla kosztu).
+- Faza 5 postęp (2026-06-25): Argo CD v3.4.4 zainstalowany na klastrze w ns
 - Faza 5 postęp (2026-06-25): Argo CD v3.4.4 zainstalowany na klastrze w ns
   argocd (kubectl apply --server-side --force-conflicts — bez server-side CRD
   applicationsets za duży na adnotację last-applied-config). UI przez
@@ -209,14 +230,19 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
   na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
   walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
-- Następny krok (Faza 5 - Argo CD / GitOps): zainstalować Argo CD na klastrze,
-  utworzyć Application wskazującą na repo (chart k8s/featureboard + values per
-  env), włączyć auto-sync (Argo pilnuje, że stan klastra = repo) i promocję
-  dev -> staging -> prod. Cel: koniec ręcznego helm upgrade i ręcznego
-  wstawiania tagu obrazu w values — Argo synchronizuje z gita. Do przemyślenia:
-  jak CI ma aktualizować tag obrazu w repo (image updater / commit z pipeline).
-  PRZED kolejną dłuższą przerwą: helm uninstall featureboard -n featureboard
-  (kasuje LB!), potem selektywny terraform destroy klastra; Cloud SQL zostaje.
+- Następny krok (Faza 6 - Argo Rollouts): canary deployment z automatycznym
+  rollbackiem na metrykach. Zainstalować Argo Rollouts (controller + CRD
+  Rollout), zamienić Deployment w chartie na Rollout ze strategią canary
+  (kroki: X% ruchu -> analiza metryk -> promocja/rollback). Potrzebny będzie
+  Prometheus do AnalysisTemplate (metryki błędów/latencji), więc może zazębić
+  się z Fazą 7 (observability). Cel: bezpieczne wdrożenia, automatyczny powrót
+  do poprzedniej wersji gdy nowa psuje metryki.
+- TEARDOWN z Argo (ważne!): NAJPIERW kubectl delete applicationset featureboard
+  -n argocd (albo delete application per env) — inaczej selfHeal odtwarza
+  zasoby; potem kubectl delete ingress -n featureboard-dev (kasuje LB); dopiero
+  potem selektywny terraform destroy klastra. Cloud SQL zostaje. Powrót: apply
+  -> get-credentials -> bootstrap.yaml -> install argocd (create ns argocd!
+  + apply --server-side) -> apply applicationset.yaml -> Argo odtwarza z gita.
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

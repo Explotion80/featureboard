@@ -3,3 +3,4 @@ uvicorn[standard]
 psycopg[binary]
 pydantic-settings
 google-cloud-secret-manager
+prometheus-fastapi-instrumentator

@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 import psycopg
 from fastapi import FastAPI, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
@@ -65,7 +66,7 @@ async def lifespan(app: FastAPI):
     yield
     
 app = FastAPI(lifespan=lifespan)
-
+Instrumentator().instrument(app).expose(app)
 
 class NoteIn(BaseModel):
     content: str

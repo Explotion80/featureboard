@@ -110,3 +110,5 @@ def list_notes():
             "SELECT id, content, created_at FROM notes ORDER BY id"
         ).fetchall()
     return [{"id": r[0], "content": r[1], "created_at": r[2]} for r in rows]
+
+# test test

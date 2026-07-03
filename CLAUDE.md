@@ -84,7 +84,23 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 5 UKOŃCZONA -> Faza 6 (Argo Rollouts: canary)
+- Aktualna faza: 6 (Argo Rollouts) — Część 1 UKOŃCZONA (canary z ręczną
+  bramką), zostało: Część 2 (Prometheus + AnalysisTemplate = auto-rollback).
+- Faza 6 Część 1 (2026-07-03): Argo Rollouts v1.9.0 (kontroler w ns
+  argo-rollouts + CRD; plugin kubectl-argo-rollouts.exe w WinGet/Links).
+  W chartcie templates/deployment.yaml -> rollout.yaml: apiVersion
+  argoproj.io/v1alpha1, kind Rollout, strategy.canary.steps: setWeight 50 ->
+  pause {} (bez limitu = czeka na człowieka). Argo CD prune usunął Deployment,
+  postawił Rollout (oba env). Przetestowany PEŁNY cykl canary na żywo na dev:
+  push zmiany kodu -> CI build + bump values-dev -> Argo sync -> rollout
+  50/50 (1 pod stary + 1 nowy, Service dzieli ruch po liczbie podów) ->
+  Status Paused -> kubectl argo rollouts promote -> nowa wersja 100%, stare
+  rewizje ScaledDown (historia = punkty rollbacku). Awaryjnie: abort.
+  UWAGA: bez traffic managementu (mesh/ingress) procent canary = proporcja
+  podów. DECYZJA: infra zostaje WŁĄCZONA 24/7 (~$40-45/mies. z kredytu $300;
+  koniec teardownów na przerwy — praca przez git push). Nawyk: git pull
+  --rebase przed pracą (CI-bot commituje bump do main po KAŻDYM pushu,
+  nawet docs-only; drobiazg do ogarnięcia: paths-ignore dla *.md).
 - Faza 5 domknięta (2026-06-30): (A) Pętla GitOps zamknięta — CI po pushu obrazu
   sam wpisuje tag do gita: krok "Update image tag" (sed na k8s/values-dev.yaml,
   commit "[skip ci]" by uniknąć pętli, permissions contents:write, push
@@ -230,13 +246,15 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
   na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
   walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
-- Następny krok (Faza 6 - Argo Rollouts): canary deployment z automatycznym
-  rollbackiem na metrykach. Zainstalować Argo Rollouts (controller + CRD
-  Rollout), zamienić Deployment w chartie na Rollout ze strategią canary
-  (kroki: X% ruchu -> analiza metryk -> promocja/rollback). Potrzebny będzie
-  Prometheus do AnalysisTemplate (metryki błędów/latencji), więc może zazębić
-  się z Fazą 7 (observability). Cel: bezpieczne wdrożenia, automatyczny powrót
-  do poprzedniej wersji gdy nowa psuje metryki.
+- Następny krok (Faza 6 Część 2, zazębia się z Fazą 7): automatyczny
+  rollback na metrykach. (1) Zainstalować Prometheusa na klastrze (zbiera
+  metryki; apka musi eksponować /metrics — dodać instrumentację FastAPI,
+  np. prometheus-fastapi-instrumentator). (2) AnalysisTemplate: zapytanie
+  o error-rate/latencję wersji canary. (3) Wpiąć analysis w strategy.canary
+  (zamiast pause {} — automatyczna ocena: metryki OK => promocja, złe =>
+  abort/rollback bez człowieka). (4) Test: celowo zepsuta wersja (endpoint
+  rzucający 500) ma się SAMA wycofać. Uwaga na zasoby klastra: Prometheus
+  zje sporo RAM — możliwe, że trzeba będzie 3. węzeł albo e2-standard-2.
 - TEARDOWN z Argo (ważne!): NAJPIERW kubectl delete applicationset featureboard
   -n argocd (albo delete application per env) — inaczej selfHeal odtwarza
   zasoby; potem kubectl delete ingress -n featureboard-dev (kasuje LB); dopiero

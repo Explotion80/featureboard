@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: featureboard-error-rate
+spec:
+  args:
+    - name: canary-hash          # hash ReplicaSetu kandydata — poda go Rollout
+  metrics:
+    - name: error-rate
+      interval: 30s              # pomiar co 30 s...
+      count: 4                   # ...4 razy = ~2 min analizy
+      failureLimit: 1            # 2 złe pomiary = porażka -> automatyczny rollback
+      successCondition: result[0] <= 0.05   # próg: max 5% odpowiedzi 5xx
+      provider:
+        prometheus:
+          address: http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+          query: >
+            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}",pod=~"featureboard-{{ "{{args.canary-hash}}" }}-.*",status=~"5.."}[2m]))
+            /
+            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}",pod=~"featureboard-{{ "{{args.canary-hash}}" }}-.*"}[2m]))

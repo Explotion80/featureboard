@@ -13,7 +13,13 @@ spec:
     canary:
       steps:
         - setWeight: 50
-        - pause: {}
+        - analysis:
+            templates:
+              - templateName: featureboard-error-rate
+            args:
+              - name: canary-hash
+                valueFrom:
+                  podTemplateHashValue: Latest   # hash ReplicaSetu KANDYDATA
   template:
     metadata:
       labels:

@@ -113,5 +113,7 @@ def list_notes():
     return [{"id": r[0], "content": r[1], "created_at": r[2]} for r in rows]
 
 # test 123 
-
+@app.get("/boom")
+def boom():
+    raise HTTPException(status_code=500, detail="boom")
 # test 312

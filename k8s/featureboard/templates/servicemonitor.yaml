@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: featureboard
+  labels:
+    release: monitoring        # bez tego Prometheus IGNORUJE ten obiekt
+spec:
+  selector:
+    matchLabels:
+      app: featureboard        # znajdź Service z tą etykietą (w tym samym ns)
+  endpoints:
+    - port: http               # nazwany port z Service
+      path: /metrics
+      interval: 30s            # odpytuj co 30 sekund

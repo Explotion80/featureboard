@@ -97,8 +97,8 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   Status Paused -> kubectl argo rollouts promote -> nowa wersja 100%, stare
   rewizje ScaledDown (historia = punkty rollbacku). Awaryjnie: abort.
   UWAGA: bez traffic managementu (mesh/ingress) procent canary = proporcja
-  podów. DECYZJA: infra zostaje WŁĄCZONA 24/7 (~$40-45/mies. z kredytu $300;
-  koniec teardownów na przerwy — praca przez git push). Nawyk: git pull
+  podów. DECYZJA ZMIENIONA (2026-07-06): jednak GASIMY na przerwy (koszt
+  ~$40-45/mies. uznany za zbyt duży) — patrz sekcja TEARDOWN niżej. Nawyk: git pull
   --rebase przed pracą (CI-bot commituje bump do main po KAŻDYM pushu,
   nawet docs-only; drobiazg do ogarnięcia: paths-ignore dla *.md).
 - Faza 5 domknięta (2026-06-30): (A) Pętla GitOps zamknięta — CI po pushu obrazu
@@ -255,12 +255,20 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   abort/rollback bez człowieka). (4) Test: celowo zepsuta wersja (endpoint
   rzucający 500) ma się SAMA wycofać. Uwaga na zasoby klastra: Prometheus
   zje sporo RAM — możliwe, że trzeba będzie 3. węzeł albo e2-standard-2.
-- TEARDOWN z Argo (ważne!): NAJPIERW kubectl delete applicationset featureboard
-  -n argocd (albo delete application per env) — inaczej selfHeal odtwarza
-  zasoby; potem kubectl delete ingress -n featureboard-dev (kasuje LB); dopiero
-  potem selektywny terraform destroy klastra. Cloud SQL zostaje. Powrót: apply
-  -> get-credentials -> bootstrap.yaml -> install argocd (create ns argocd!
-  + apply --server-side) -> apply applicationset.yaml -> Argo odtwarza z gita.
+- TEARDOWN z Argo (ważne!): (1) kubectl delete applicationset featureboard
+  -n argocd ORAZ kubectl delete application monitoring -n argocd — inaczej
+  selfHeal odtwarza; (2) kubectl delete ingress -n featureboard-dev (kasuje
+  LB, potwierdzić: gcloud compute forwarding-rules list puste); (3) selektywny
+  terraform destroy klastra. Cloud SQL NIE usuwać, ale można ZATRZYMAĆ:
+  gcloud sql instances patch featureboard-db --activation-policy=NEVER
+  (powrót: --activation-policy=ALWAYS). POWRÓT PO PRZERWIE (pełna lista):
+  (1) terraform apply; (2) get-credentials; (3) kubectl apply -f
+  k8s/bootstrap.yaml; (4) kubectl create namespace argocd + kubectl apply -n
+  argocd --server-side --force-conflicts -f .../argo-cd/v3.4.4/manifests/
+  install.yaml; (5) kubectl create namespace argo-rollouts + kubectl apply -n
+  argo-rollouts -f .../argo-rollouts/releases/download/v1.9.0/install.yaml;
+  (6) kubectl apply -f argocd/applicationset.yaml + argocd/monitoring.yaml;
+  (7) baza: activation-policy=ALWAYS. Argo odtwarza resztę z gita.
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

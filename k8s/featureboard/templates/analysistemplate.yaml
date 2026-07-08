@@ -7,6 +7,7 @@ spec:
     - name: canary-hash          # hash ReplicaSetu kandydata — poda go Rollout
   metrics:
     - name: error-rate
+      initialDelay: 60s        # poczekaj, aż Prometheus zbierze pierwsze próbki canary
       interval: 30s              # pomiar co 30 s...
       count: 4                   # ...4 razy = ~2 min analizy
       failureLimit: 1            # 2 złe pomiary = porażka -> automatyczny rollback
@@ -15,6 +16,6 @@ spec:
         prometheus:
           address: http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
           query: >
-            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}",pod=~"featureboard-{{ "{{args.canary-hash}}" }}-.*",status=~"5.."}[2m]))
+            (sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}",pod=~"featureboard-{{ "{{args.canary-hash}}" }}-.*",status=~"5.."}[2m])) or vector(0))
             /
             sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}",pod=~"featureboard-{{ "{{args.canary-hash}}" }}-.*"}[2m]))

@@ -12,9 +12,11 @@ spec:
     helm:
       values: |
         grafana:
-          enabled: false          # włączymy w fazie 7
+          enabled: false          
         alertmanager:
-          enabled: false          # włączymy w fazie 7
+          enabled: false          
+        coreDns:
+          enabled: false          
         prometheus:
           prometheusSpec:
             retention: 24h        # krótka historia — oszczędza dysk/RAM (dev)

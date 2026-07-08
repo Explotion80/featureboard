@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "WERSJA-Z-HELM-SEARCH"    # przypinamy, jak wszystko
+    helm:
+      values: |
+        grafana:
+          enabled: false          # włączymy w fazie 7
+        alertmanager:
+          enabled: false          # włączymy w fazie 7
+        prometheus:
+          prometheusSpec:
+            retention: 24h        # krótka historia — oszczędza dysk/RAM (dev)
+            resources:
+              requests:
+                cpu: 100m
+                memory: 400Mi
+              limits:
+                memory: 900Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true      # CRD Prometheusa są wielkie (jak ApplicationSet w Argo)

@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://prometheus-community.github.io/helm-charts
     chart: kube-prometheus-stack
-    targetRevision: "WERSJA-Z-HELM-SEARCH"    # przypinamy, jak wszystko
+    targetRevision: "87.10.1"    # przypinamy, jak wszystko
     helm:
       values: |
         grafana:

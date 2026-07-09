@@ -12,7 +12,7 @@ spec:
     helm:
       values: |
         grafana:
-          enabled: false          
+          enabled: true          
         alertmanager:
           enabled: false          
         coreDns:

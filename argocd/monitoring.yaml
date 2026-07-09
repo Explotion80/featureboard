@@ -14,7 +14,7 @@ spec:
         grafana:
           enabled: true          
         alertmanager:
-          enabled: false          
+          enabled: true          
         coreDns:
           enabled: false          
         prometheus:

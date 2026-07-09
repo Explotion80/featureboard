@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: featureboard
+  labels:
+    release: monitoring          # tak samo jak ServiceMonitor — inaczej operator zignoruje
+spec:
+  groups:
+    - name: featureboard.rules
+      rules:
+        - alert: FeatureBoardHighErrorRate
+          expr: >
+            (sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}",status=~"5.."}[5m])) or vector(0))
+            /
+            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}"}[5m]))
+            > 0.05
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "FeatureBoard error rate > 5% ({{ .Release.Namespace }})"
+            description: "Ponad 5% żądań zwraca 5xx od co najmniej 2 minut."

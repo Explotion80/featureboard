@@ -84,8 +84,46 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 6 (Argo Rollouts) — Część 1 UKOŃCZONA (canary z ręczną
-  bramką), zostało: Część 2 (Prometheus + AnalysisTemplate = auto-rollback).
+- Aktualna faza: 7 (Observability) — W TOKU. Zrobione: Prometheus, Grafana,
+  alerty (PrometheusRule + Alertmanager, pełny łańcuch przetestowany). ZOSTAŁO:
+  Loki (logi) + dashboard-as-code + ew. realny receiver (Slack). Faza 6
+  Część 2 (auto-rollback) skonfigurowana (AnalysisTemplate error-rate wpięty
+  w rollout), test odporności ODPUSZCZONY świadomie — mechanika rozumiana.
+- Faza 7 (2026-07-10): PEŁNY łańcuch observability zbudowany i przetestowany.
+  (A) Grafana włączona: w argocd/monitoring.yaml grafana.enabled false->true.
+  LEKCJA KLUCZOWA: monitoring.yaml to ROOT-owa Application bootstrapowana
+  RĘCZNIE (nikt jej nie pilnuje z gita — brak app-of-apps), więc sam git push
+  NIE wystarcza; trzeba kubectl apply -f argocd/monitoring.yaml. Kontrast:
+  PrometheusRule jest WEWNĄTRZ charta featureboard (pilnowanego przez
+  ApplicationSet), więc tam push wystarcza. To różnica "co Argo reconciluje
+  (treść, na którą Application wskazuje) vs czego nie (samą definicję
+  Application)". (B) Dashboard "FeatureBoard" zbudowany w UI (panel
+  "Request rate by status": sum(rate(http_requests_total{namespace=
+  "featureboard-dev"}[5m])) by (status)) — dwa złote sygnały (traffic+errors).
+  ZNIKNĄŁ po restarcie poda Grafany (persistence domyślnie OFF -> baza
+  dashboardów w emptyDir -> nowy pod = czysto). Odtworzony i wyeksportowany
+  do k8s/featureboard/dashboards/featureboard.json (UWAGA: nowy schemat
+  Grafana v13 dashboard.grafana.app/v2 — klasyczny provisioning/sidecar chce
+  STAREGO modelu, przy auto-load trzeba skonwertować). (C) Alert:
+  k8s/featureboard/templates/prometheusrule.yaml — kind PrometheusRule,
+  label release: monitoring (bez niej operator ignoruje, jak ServiceMonitor),
+  alert FeatureBoardHighErrorRate: (5xx/all > 0.05) for 2m, severity warning,
+  namespace przez {{ .Release.Namespace }} (działa per-env). Cykl Inactive->
+  Pending->Firing przetestowany ostrzałem /boom. Lekcja: for opóźnia ZAPŁON,
+  szerokość okna rate[5m] opóźnia WYGAŚNIĘCIE (błędy siedzą w oknie ~5 min).
+  (D) Alertmanager włączony (enabled true, znów kubectl apply). Firing alert
+  faktycznie ląduje w Alertmanager UI (:9093). Domyślne alerty GKE
+  KubeSchedulerDown/KubeControllerManagerDown/KubeProxyDown to FAŁSZYWKI
+  (GKE ukrywa control plane) — do wyciszenia/usunięcia. Watchdog = celowo
+  zawsze firing (dowód drożności rury). KubeCPU/MemoryOvercommit prawdziwe
+  (mały klaster). (E) /boom endpoint w app/main.py (GET, raise 500) do
+  generowania błędów. Endpoint /metrics przez prometheus-fastapi-instrumentator,
+  scrape przez ServiceMonitor. Screeny zrobione przed teardownem (docs/
+  screenshots/). Dostęp: port-forward Grafana svc/monitoring-grafana 3000:80,
+  Prometheus svc/monitoring-kube-prometheus-prometheus 9090:9090 (bez logowania),
+  Alertmanager svc/monitoring-kube-prometheus-alertmanager 9093:9093, Argo CD
+  8080:443. Hasła: Grafana secret monitoring-grafana klucz admin-password,
+  Argo secret argocd-initial-admin-secret klucz password.
 - Faza 6 Część 1 (2026-07-03): Argo Rollouts v1.9.0 (kontroler w ns
   argo-rollouts + CRD; plugin kubectl-argo-rollouts.exe w WinGet/Links).
   W chartcie templates/deployment.yaml -> rollout.yaml: apiVersion
@@ -246,15 +284,22 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
   na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
   walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
-- Następny krok (Faza 6 Część 2, zazębia się z Fazą 7): automatyczny
-  rollback na metrykach. (1) Zainstalować Prometheusa na klastrze (zbiera
-  metryki; apka musi eksponować /metrics — dodać instrumentację FastAPI,
-  np. prometheus-fastapi-instrumentator). (2) AnalysisTemplate: zapytanie
-  o error-rate/latencję wersji canary. (3) Wpiąć analysis w strategy.canary
-  (zamiast pause {} — automatyczna ocena: metryki OK => promocja, złe =>
-  abort/rollback bez człowieka). (4) Test: celowo zepsuta wersja (endpoint
-  rzucający 500) ma się SAMA wycofać. Uwaga na zasoby klastra: Prometheus
-  zje sporo RAM — możliwe, że trzeba będzie 3. węzeł albo e2-standard-2.
+- Następny krok (dokończenie Fazy 7): (1) LOKI — logi. Osobna Application
+  Argo (argocd/loki.yaml, root-owa jak monitoring -> push + kubectl apply),
+  chart grafana/loki-stack (Loki + Promtail), tryb single-binary + storage
+  filesystem (bez GCS), krótka retencja, małe requests (klaster ciasny).
+  Loki = magazyn logów (LogQL ~ PromQL), Promtail = DaemonSet zbierający logi
+  z węzłów. Dopiąć Loki jako datasource w Grafanie -> Explore -> korelacja
+  metryka->log. Różnica vs ELK: Loki NIE indeksuje treści, tylko etykiety
+  (dlatego lekki). (2) DASHBOARD-AS-CODE: dashboard z UI ginie przy restarcie
+  poda -> zrobić ConfigMap z JSON (label grafana_dashboard: "1") ładowany
+  przez sidecar Grafany. Haczyk: sidecar domyślnie szuka tylko w swoim ns
+  (monitoring) -> albo ConfigMap w monitoring, albo grafana.sidecar.dashboards.
+  searchNamespace: ALL w monitoring.yaml. Uwaga: nasz backup JSON jest w
+  schemacie v2 (v13) — provisioning chce klasycznego, skonwertować.
+  (3) ew. realny receiver Alertmanagera (Slack webhook przez SECRET, nie w
+  repo — Secret Manager/k8s Secret). Potem Faza 8 (AI capstone). Backlog CV:
+  README + docs/DECISIONS.md + diagram architektury (packaging na rekrutera).
 - TEARDOWN z Argo (ważne!): (1) kubectl delete applicationset featureboard
   -n argocd ORAZ kubectl delete application monitoring -n argocd — inaczej
   selfHeal odtwarza; (2) kubectl delete ingress -n featureboard-dev (kasuje

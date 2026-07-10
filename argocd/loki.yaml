@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki-stack
+    targetRevision: "2.10.3"          # przypięte, jak wszystko
+    helm:
+      values: |
+        loki:
+          persistence:
+            enabled: false            # bez trwałego dysku — logi ulotne (demo, ciasny klaster)
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+        promtail:
+          resources:                  # zbieracz na każdym węźle — trzymamy go małym
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+        grafana:
+          enabled: false              # mamy własną Grafanę z kube-prometheus-stack
+        prometheus:
+          enabled: false              # i własnego Prometheusa — nie chcemy drugich
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring             # obok Grafany/Prometheusa — wszystko w jednym ns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -84,11 +84,43 @@ prawdy dla agenta `roadmap-mentor` i dla nas przy zamykaniu fazy.
 Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
 
 # Status (aktualizuj na końcu każdej sesji — to nasza pamięć między sesjami)
-- Aktualna faza: 7 (Observability) — W TOKU. Zrobione: Prometheus, Grafana,
-  alerty (PrometheusRule + Alertmanager, pełny łańcuch przetestowany). ZOSTAŁO:
-  Loki (logi) + dashboard-as-code + ew. realny receiver (Slack). Faza 6
-  Część 2 (auto-rollback) skonfigurowana (AnalysisTemplate error-rate wpięty
-  w rollout), test odporności ODPUSZCZONY świadomie — mechanika rozumiana.
+- Aktualna faza: 7 (Observability) — RDZEŃ DOMKNIĘTY (2026-07-10). Zrobione:
+  Prometheus, Grafana + dashboard-as-code, alerty (PrometheusRule +
+  Alertmanager, pełny łańcuch), Loki + Promtail (logi), korelacja metryka↔log,
+  symulacja awarii (/boom). ZOSTAŁO opcjonalnie: realny receiver Slack,
+  wyciszenie fałszywek GKE. Potem Faza 8 (AI capstone) + packaging na CV.
+  Faza 6 Część 2 (auto-rollback) skonfigurowana (AnalysisTemplate error-rate
+  wpięty w rollout), test odporności ODPUSZCZONY świadomie — mechanika rozumiana.
+- Faza 7 LOKI + DASHBOARD-AS-CODE (2026-07-10): (A) Klaster nie mieścił
+  observability — scheduler zgłaszał "Insufficient cpu" (nie memory). Diagnoza:
+  kubectl top nodes (realne zużycie ~20%) vs describe nodes Allocated (cpu
+  95-99% w REQUESTS) — klasyczna lekcja "requests to rezerwacja, nie zużycie".
+  Autoscaler OFF (pula sztywna). Rozwiązane skalowaniem poziomym: node_count
+  2->3 w infra/main.tf (terraform apply, update in-place, bez destroy). PAMIĘTAJ:
+  main.tf zmieniony -> commit do gita (IaC = źródło prawdy). (B) Loki przez
+  argocd/loki.yaml (root-owa, push+kubectl apply), chart grafana/loki-stack
+  2.10.3, grafana.enabled+prometheus.enabled FALSE (mamy własne z kps — inaczej
+  duble). loki.persistence OFF, małe requests. Promtail = DaemonSet (1/węzeł).
+  (C) PUŁAPKA loki-stack: sam dokłada datasource Loki do Grafany (ConfigMap
+  grafana_datasource=1) z isDefault: TRUE -> kolizja z domyślnym Prometheusem
+  -> Grafana CrashLoop "Only one datasource can be marked as default" (crash
+  ujawnia się przy RESTARCIE, provisioning waliduje na starcie). FIX:
+  loki.isDefault:false w loki.yaml; nasze redundantne additionalDataSources
+  w monitoring.yaml USUNIĘTE. Nie trzeba było ich wcale. (D) LogQL w Grafana
+  Explore: {namespace="featureboard-dev"} selektor po etykietach; |= "500"
+  filtr treści; |~ "(?i)error" regex. Split view Loki+Prometheus = korelacja
+  skok 5xx <-> linie logów. Etykiety logu (pod, node_name, container) =
+  drążenie zakresu. (E) DASHBOARD-AS-CODE: k8s/featureboard/dashboards/
+  featureboard.json w KLASYCZNYM schemacie (v2 z UI NIE działa w sidecarze —
+  sidecar/provisioning to legacy, czyta stary model; v2 to nowa ścieżka
+  grafana-apiserver). ConfigMap templates/dashboard-configmap.yaml: Files.Get
+  wczytuje JSON, label grafana_dashboard:"1", gating {{ if eq
+  .Values.config.environment "dev" }} (inaczej dev+staging = duplikat uid).
+  W monitoring.yaml grafana.sidecar.dashboards.searchNamespace: ALL (sidecar
+  domyślnie widzi tylko swój ns monitoring, a ConfigMap jest w featureboard-dev).
+  Dashboard wraca sam z gita. (F) Znany drobiazg: histogram "Logs volume"
+  w Explore rzuca parse error — stary obraz loki 2.6.1 w loki-stack nie zna
+  składni generowanej przez Grafanę v13; kosmetyka, logi działają.
 - Faza 7 (2026-07-10): PEŁNY łańcuch observability zbudowany i przetestowany.
   (A) Grafana włączona: w argocd/monitoring.yaml grafana.enabled false->true.
   LEKCJA KLUCZOWA: monitoring.yaml to ROOT-owa Application bootstrapowana
@@ -284,25 +316,21 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   brak PUT/DELETE dla notatek (ROADMAP mówi "CRUD"), brak response_model
   na endpointach, brak testów negatywnych (/readyz przy padniętej bazie,
   walidacja NoteIn), digest pinning obrazu bazowego w Dockerfile.
-- Następny krok (dokończenie Fazy 7): (1) LOKI — logi. Osobna Application
-  Argo (argocd/loki.yaml, root-owa jak monitoring -> push + kubectl apply),
-  chart grafana/loki-stack (Loki + Promtail), tryb single-binary + storage
-  filesystem (bez GCS), krótka retencja, małe requests (klaster ciasny).
-  Loki = magazyn logów (LogQL ~ PromQL), Promtail = DaemonSet zbierający logi
-  z węzłów. Dopiąć Loki jako datasource w Grafanie -> Explore -> korelacja
-  metryka->log. Różnica vs ELK: Loki NIE indeksuje treści, tylko etykiety
-  (dlatego lekki). (2) DASHBOARD-AS-CODE: dashboard z UI ginie przy restarcie
-  poda -> zrobić ConfigMap z JSON (label grafana_dashboard: "1") ładowany
-  przez sidecar Grafany. Haczyk: sidecar domyślnie szuka tylko w swoim ns
-  (monitoring) -> albo ConfigMap w monitoring, albo grafana.sidecar.dashboards.
-  searchNamespace: ALL w monitoring.yaml. Uwaga: nasz backup JSON jest w
-  schemacie v2 (v13) — provisioning chce klasycznego, skonwertować.
-  (3) ew. realny receiver Alertmanagera (Slack webhook przez SECRET, nie w
-  repo — Secret Manager/k8s Secret). Potem Faza 8 (AI capstone). Backlog CV:
-  README + docs/DECISIONS.md + diagram architektury (packaging na rekrutera).
+- Następny krok: Faza 7 opcjonalna polerka LUB Faza 8. (A) OPCJONALNIE do
+  Fazy 7: (1) realny receiver Alertmanagera — Slack webhook przez SECRET
+  (nie w repo — Secret Manager / k8s Secret / External Secrets). (2) Wyciszyć
+  fałszywki GKE (KubeSchedulerDown/KubeControllerManagerDown/KubeProxyDown)
+  przez alertmanager inhibit/route albo wyłączenie tych reguł w kube-prometheus-
+  stack. (B) FAZA 8 (AI capstone): alert -> LLM streszcza przyczynę i sugeruje
+  naprawę (można wpiąć w webhook Alertmanagera). (C) PACKAGING NA CV (ważne):
+  README (opis + diagram architektury + screeny + "co zbudowałem" per faza),
+  docs/DECISIONS.md (tradeoffy: GKE vs Cloud Run, Helm vs Kustomize, WIF vs
+  klucz JSON, loki-stack vs chart loki). Screeny robić PRZED teardownem
+  (dashboard, split metryka+log, Alertmanager Firing, Argo CD Synced).
 - TEARDOWN z Argo (ważne!): (1) kubectl delete applicationset featureboard
-  -n argocd ORAZ kubectl delete application monitoring -n argocd — inaczej
-  selfHeal odtwarza; (2) kubectl delete ingress -n featureboard-dev (kasuje
+  -n argocd ORAZ kubectl delete application monitoring -n argocd ORAZ
+  kubectl delete application loki -n argocd — inaczej selfHeal odtwarza;
+  (2) kubectl delete ingress -n featureboard-dev (kasuje
   LB, potwierdzić: gcloud compute forwarding-rules list puste); (3) selektywny
   terraform destroy klastra. Cloud SQL NIE usuwać, ale można ZATRZYMAĆ:
   gcloud sql instances patch featureboard-db --activation-policy=NEVER
@@ -312,8 +340,10 @@ Deleguj do nich proaktywnie, gdy zmieniają się odpowiednie pliki.
   argocd --server-side --force-conflicts -f .../argo-cd/v3.4.4/manifests/
   install.yaml; (5) kubectl create namespace argo-rollouts + kubectl apply -n
   argo-rollouts -f .../argo-rollouts/releases/download/v1.9.0/install.yaml;
-  (6) kubectl apply -f argocd/applicationset.yaml + argocd/monitoring.yaml;
-  (7) baza: activation-policy=ALWAYS. Argo odtwarza resztę z gita.
+  (6) kubectl apply -f argocd/applicationset.yaml + argocd/monitoring.yaml +
+  argocd/loki.yaml; (6a) klaster ma teraz 3 węzły (node_count=3 w main.tf) —
+  observability nie mieści się na 2; (7) baza: activation-policy=ALWAYS.
+  Argo odtwarza resztę z gita.
 
 Na początku sesji: przywitaj się krótko, przypomnij w 1-2 zdaniach gdzie
 jesteśmy według sekcji Status, i poprowadź mnie przez "Następny krok".

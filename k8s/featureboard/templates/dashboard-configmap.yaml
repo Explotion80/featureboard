@@ -1,0 +1,11 @@
+{{- if eq .Values.config.environment "dev" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: featureboard-dashboard
+  labels:
+    grafana_dashboard: "1"        # po tej etykiecie sidecar Grafany wciąga dashboard
+data:
+  featureboard.json: |
+{{ .Files.Get "dashboards/featureboard.json" | indent 4 }}
+{{- end }}

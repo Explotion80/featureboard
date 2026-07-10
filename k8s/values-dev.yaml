@@ -11,4 +11,4 @@ resources:
 ingress:
   enabled: true
 image:
-  tag: "1925e24d6a8aae82215c2a69e77e1323ed6fb2b0"
+  tag: "7c17f504bf42eb5fd5f1acf1f3a2b9606d304021"

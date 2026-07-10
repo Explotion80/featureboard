@@ -12,6 +12,7 @@ spec:
     helm:
       values: |
         loki:
+          isDefault: false
           persistence:
             enabled: false            # bez trwałego dysku — logi ulotne (demo, ciasny klaster)
           resources:

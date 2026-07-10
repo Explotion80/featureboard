@@ -12,12 +12,7 @@ spec:
     helm:
       values: |
         grafana:
-          enabled: true
-          additionalDataSources:
-            - name: loki
-              type: loki
-              url: http://loki.monitoring.svc.cluster.local:3100
-              access: proxy       
+          enabled: true     
         alertmanager:
           enabled: true          
         coreDns:
